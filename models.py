@@ -64,7 +64,7 @@ class Admin(UserMixin, db.Model):
 
 
 class Movie(db.Model):
-    """Movie metadata fetched from TMDb/OMDb or entered by an admin."""
+    """Movie metadata fetched from TMDb or entered by an admin."""
 
     __tablename__ = "movies"
 

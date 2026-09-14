@@ -528,32 +528,55 @@ def admin_required(view_func):
 
 
 def fetch_movies_from_api(query_text):
-    """Fetch movies from TMDb when available, otherwise OMDb."""
+    """Fetch movies from TMDb API."""
 
     tmdb_key = current_app.config.get("TMDB_API_KEY")
-    omdb_key = current_app.config.get("OMDB_API_KEY")
     if tmdb_key:
         return fetch_movies_from_tmdb(query_text, tmdb_key)
-    if omdb_key:
-        return fetch_movies_from_omdb(query_text, omdb_key)
     return []
 
 
 def fetch_movies_from_tmdb(query_text, api_key):
-    """Search TMDb and normalize results to the local Movie fields."""
+    """Search TMDb and normalize results to the local Movie fields.
 
-    try:
-        response = requests.get(
-            f"{current_app.config['TMDB_BASE_URL']}/search/movie",
-            params={"api_key": api_key, "query": query_text, "include_adult": "false"},
-            timeout=6,
-        )
-        response.raise_for_status()
-    except requests.RequestException:
+    Tries the official API first, then falls back to proxy mirrors
+    when the ISP blocks api.themoviedb.org.
+    """
+
+    # URLs to try — official first, then community proxy mirrors
+    base_urls = [
+        current_app.config["TMDB_BASE_URL"],            # https://api.themoviedb.org/3
+        "https://tmdb-proxy.cubari.moe/3",               # community mirror
+        "https://api.tmdb.org/3",                         # alternate official domain
+    ]
+
+    params = {"api_key": api_key, "query": query_text, "include_adult": "false"}
+    print(f"[TMDB] Searching for: '{query_text}'")
+
+    response = None
+    for base in base_urls:
+        url = f"{base}/search/movie"
+        print(f"[TMDB] Trying: {url}")
+        try:
+            response = requests.get(url, params=params, timeout=8)
+            print(f"[TMDB] Status Code: {response.status_code}")
+            response.raise_for_status()
+            break  # success — stop trying other URLs
+        except requests.RequestException as e:
+            print(f"[TMDB] FAILED: {e}")
+            response = None
+            continue
+
+    if response is None:
+        print("[TMDB] All endpoints failed.")
         return []
 
+    data = response.json()
+    results = data.get("results", [])
+    print(f"[TMDB] Results found: {len(results)}")
+
     movies = []
-    for item in response.json().get("results", [])[:8]:
+    for item in results[:8]:
         release_date = item.get("release_date") or ""
         genres = [TMDB_GENRES.get(genre_id) for genre_id in item.get("genre_ids", [])]
         poster_path = item.get("poster_path")
@@ -570,50 +593,10 @@ def fetch_movies_from_tmdb(query_text, api_key):
                 "poster_url": f"https://image.tmdb.org/t/p/w500{poster_path}" if poster_path else placeholder_poster(),
             }
         )
+    print(f"[TMDB] Movies processed: {len(movies)}")
     return movies
 
 
-def fetch_movies_from_omdb(query_text, api_key):
-    """Search OMDb and fetch details for a small result set."""
-
-    try:
-        search_response = requests.get(
-            current_app.config["OMDB_BASE_URL"],
-            params={"apikey": api_key, "s": query_text, "type": "movie"},
-            timeout=6,
-        )
-        search_response.raise_for_status()
-    except requests.RequestException:
-        return []
-
-    movies = []
-    for item in search_response.json().get("Search", [])[:8]:
-        imdb_id = item.get("imdbID")
-        try:
-            details_response = requests.get(
-                current_app.config["OMDB_BASE_URL"],
-                params={"apikey": api_key, "i": imdb_id, "plot": "short"},
-                timeout=6,
-            )
-            details_response.raise_for_status()
-        except requests.RequestException:
-            continue
-        details = details_response.json()
-        poster = details.get("Poster")
-        movies.append(
-            {
-                "imdb_id": imdb_id,
-                "title": details.get("Title") or item.get("Title") or "Untitled",
-                "genre": details.get("Genre") or "Drama",
-                "release_year": details.get("Year") or "N/A",
-                "language": details.get("Language") or "English",
-                "duration": details.get("Runtime") or "120 min",
-                "rating": float(details.get("imdbRating")) if details.get("imdbRating", "N/A") != "N/A" else 0,
-                "plot": details.get("Plot") or "Plot details are currently unavailable.",
-                "poster_url": poster if poster and poster != "N/A" else placeholder_poster(),
-            }
-        )
-    return movies
 
 
 def cache_movies(movie_payloads):
