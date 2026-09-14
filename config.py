@@ -8,10 +8,19 @@ load_dotenv()
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "change-this-secret-key")
 
-    SQLALCHEMY_DATABASE_URI = os.getenv(
+    database_url = os.getenv(
         "DATABASE_URL",
         "mysql+pymysql://127.0.0.1:3306/movie_booking_system"
     )
+
+    if database_url.startswith("mysql://"):
+        database_url = database_url.replace(
+            "mysql://",
+            "mysql+pymysql://",
+            1
+        )
+
+    SQLALCHEMY_DATABASE_URI = database_url
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
