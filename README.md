@@ -13,7 +13,7 @@ A complete **Flask + MySQL** movie ticket booking web application with customer 
 * 🗄️ MySQL schema with primary keys, foreign keys and unique seat locking
 * 💺 Seat picker that prevents double booking through a database constraint
 * ⚡ Flash messages, validation, loading animation and mobile-friendly pages
-* 🌐 OMDb integration through environment variables
+* 🌐 TMDB integration through environment variables
 
 ---
 
@@ -68,7 +68,9 @@ SQL files are located inside `database/`:
 
 `booking_seats` includes a unique constraint on:
 
+```text
 (show_id, seat_number)
+```
 
 ✅ Ensures the same seat cannot be booked twice for the same show.
 
@@ -173,14 +175,14 @@ flask --app app.py seed-demo
 
 ---
 
-## 🎥 OMDb API Integration
+## 🎥 TMDB API Integration
 
 The application works with local demo data by default.
 
-To fetch movie data dynamically, add your API key inside `.env`:
+To fetch movie data dynamically, including movie information, search results and posters, add your TMDB API key inside `.env`:
 
 ```bash
-OMDB_API_KEY=your_omdb_key
+TMDB_API_KEY=your_tmdb_key
 ```
 
 ---
@@ -228,7 +230,7 @@ OMDB_API_KEY=your_omdb_key
 * 🎨 Bootstrap 5
 * ⚡ JavaScript
 * 🔐 Flask-Login
-* 🌐 OMDb API
+* 🌐 TMDB API
 
 ---
 
